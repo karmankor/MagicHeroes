@@ -1,3 +1,8 @@
+"""
+    WE REWRITING EVERYTHING
+    WE AINT LETTING NO CLANKER DO THIS FOR US
+"""
+
 import tkinter as tk
 from tkinter import messagebox
 import random
