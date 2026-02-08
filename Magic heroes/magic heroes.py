@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox
 import random
+from hero import Hero
+from weapon import Weapon
 
 # --- KONFIGURACE A DATA ---
 
@@ -11,36 +13,6 @@ EF_MANA = "Růžová hvězda"         # Zisk many
 EF_STIT = "Modrý štít"            # Obrana
 EF_LECENI = "Zelený kříž"         # Léčení (zjednodušené)
 EF_NIC = "Nic"
-
-class Hero:
-    def __init__(self, name, life, description, bonuses):
-        self.name = name
-        self.max_life = life
-        self.current_life = life
-        self.mana = 0
-        self.shield = 0
-        self.description = description
-        # Bonusy: klíč je tuple (min_hod, max_hod), hodnota je (typ_efektu, bonus_hodnota)
-        # Např: {(1, 2): (EF_UTOK_HRDINA, 2)} znamená: Pokud padne 1 nebo 2 na kostce hrdiny
-        # a zbraň má efekt Červená kapka, přičti k síle +2.
-        self.bonuses = bonuses
-
-    def reset(self):
-        self.current_life = self.max_life
-        self.mana = 0
-        self.shield = 0
-
-class Weapon:
-    def __init__(self, name, life, repair_cost, effects):
-        self.name = name
-        self.max_life = life
-        self.current_life = life
-        self.repair_cost = repair_cost
-        # Efekty: klíč je číslo na kostce (1-6), hodnota je (nazev_efektu, sila)
-        self.effects = effects
-
-    def reset(self):
-        self.current_life = self.max_life
 
 # --- DATABÁZE HRDINŮ A ZBRANÍ ---
 
