@@ -1,0 +1,111 @@
+import tkinter as tk
+import random
+
+class Game:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Magic Heroes - Dark Fantasy")
+        self.root.configure(bg='black')  # tmavé pozadí:contentReference[oaicite:15]{index=15}
+        # Výběr hrdiny
+        self.hero_var = tk.StringVar(value="Červená Karkulka")
+        tk.Label(root, text="Vyber hrdinu:", fg="white", bg="black").pack()
+        for h in heroes.keys():
+            tk.Radiobutton(root, text=h, variable=self.hero_var,
+                           fg="white", bg="black", selectcolor='gray20').pack(anchor='w')
+        # Výběr zbraně (podobně pomocí radiobuttonů)
+        # ...
+        self.start_btn = tk.Button(root, text="Start", command=self.start_game)
+        self.start_btn.pack(pady=10)
+        # Status label pro zobrazení životů a mana
+        self.status = tk.Label(root, text="", fg="white", bg="black")
+        self.status.pack(pady=5)
+    # Metody pro start hry, rolování kostkami a aktualizaci statusu...
+
+import tkinter as tk
+import random
+
+heroes = {"Červená Karkulka": {"life": 20, "mana": 0},
+          "Zlý Vlk": {"life": 20, "mana": 0}}
+weapons = ["Černá hůl", "Červený šáteček", "Dýka smrti", "Zub vlka"]
+
+class Game:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Magic Heroes - Dark Fantasy")
+        self.root.configure(bg='black')  # Nastavení tmavého pozadí:contentReference[oaicite:22]{index=22}
+        # Výběr hrdiny
+        self.hero_var = tk.StringVar(value="Červená Karkulka")
+        tk.Label(root, text="Vyber hrdinu:", fg="white", bg="black").pack(anchor='w', padx=10, pady=5)
+        for h in heroes.keys():
+            tk.Radiobutton(root, text=h, variable=self.hero_var, value=h,
+                           fg="white", bg="black", selectcolor='gray20').pack(anchor='w', padx=20)
+        # Výběr zbraně - podobný radiobutton
+        self.weapon_var = tk.StringVar(value=weapons[0])
+        tk.Label(root, text="Vyber zbraň:", fg="white", bg="black").pack(anchor='w', padx=10, pady=5)
+        for w in weapons:
+            tk.Radiobutton(root, text=w, variable=self.weapon_var, value=w,
+                           fg="white", bg="black", selectcolor='gray20').pack(anchor='w', padx=20)
+        # Start hry
+        tk.Button(root, text="Start", command=self.start_game).pack(pady=10)
+        # Stavový štítek (zobrazuje životy a poslední akci)
+        self.status = tk.Label(root, text="", fg="white", bg="black")
+        self.status.pack(pady=5)
+
+    def start_game(self):
+        # Načtení výběru hráče a AI
+        self.player = self.hero_var.get()
+        self.weapon = self.weapon_var.get()
+        self.ai = "Zlý Vlk" if self.player == "Červená Karkulka" else "Červená Karkulka"
+        self.ai_weapon = random.choice(weapons)
+        self.player_life = heroes[self.player]["life"]
+        self.ai_life = heroes[self.ai]["life"]
+        # Zakázání dalšího výběru (hráč již vybral)
+        for widget in self.root.pack_slaves():
+            widget.config(state='disabled')
+        # Přidání tlačítka pro hod kostkami
+        tk.Button(self.root, text="Hod kostkami", command=self.roll_dice).pack(pady=5)
+        self.update_status(f"Souboj: {self.player} (Vy) vs {self.ai} (AI)")
+
+    def update_status(self, text):
+        # Aktualizace stavového textu
+        status_text = f"{text}\nŽivoty hráče: {self.player_life}   Životy AI: {self.ai_life}"
+        self.status.config(text=status_text)
+        self.root.update()
+
+    def roll_dice(self):
+        # Hozené kostky
+        hero_roll = random.randint(1, 6)
+        weapon_roll = random.randint(1, 6)
+        # Určení efektu ze zbraně (mapování hodnot na efekty)
+        name, value = self.weapon_effect(weapon_roll)
+        if name == "Červená kapka":
+            # Útok na hrdinu soupeře
+            self.ai_life -= value
+            result = f"Hodil jsi Červenou kapku ({value}). AI ztrácí {value} životů."
+        elif name == "Černý meč":
+            # Útok na zbraň soupeře (zde: jako extra poškození)
+            self.ai_life -= value
+            result = f"Hodil jsi Černý meč ({value}). AI ztrácí {value} životů."
+        elif name == "Růžová hvězda":
+            self.player_mana += value
+            result = f"Hodil jsi Růžovou hvězdu ({value}). Získáváš {value} many."
+        else:
+            result = f"Hodil jsi {name}."
+        self.update_status(result)
+        if self.ai_life <= 0:
+            self.update_status("AI padla, vyhráváš!") 
+
+    def weapon_effect(self, roll):
+        # Zjednodušené mapování čísel na efekty
+        mapping = {
+            1: ("Červená kapka", 3),
+            2: ("Černý meč", 2),
+            3: ("Růžová hvězda", 2)
+            # Další hodnoty lze přidat
+        }
+        return mapping.get(roll, ("Nic", 0))
+
+# Spuštění hry
+root = tk.Tk()
+game = Game(root)
+root.mainloop()

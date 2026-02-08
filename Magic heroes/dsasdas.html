@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Peak Circuit — Resonance & Revenge</title>
+<style>
+  /* --- CORE STYLES --- */
+  :root{
+    --bg1:#071018; --panel:#0f1418; --accent:#00ff9d; --muted:#9aa0a6; --danger:#ff4d6d;
+  }
+  html,body{height:100%; margin:0; background:#000; font-family:Inter, system-ui, sans-serif; color:#e6eef3; overflow:hidden; user-select: none;}
+  
+  .wrap{width:100%; height:100%; display:flex; align-items:center; justify-content:center; padding:18px; box-sizing:border-box;}
+  
+  #app{
+      width:1080px; height:680px; 
+      border-radius:12px; overflow:hidden; position:relative; 
+      background:#071018; 
+      box-shadow:0 0 0 1px #333, 0 20px 60px rgba(0,0,0,0.9);
+  }
+
+  /* Canvas is the visual layer behind everything */
+  canvas#gameCanvas{position:absolute; inset:0; z-index:0; display:block; width:100%; height:100%; background: #071018;}
+
+  /* --- SCREENS --- */
+  /* These sit ON TOP of the canvas (z-index 100) */
+  .screen { 
+      position:absolute; inset:0; z-index:100; 
+      display:flex; flex-direction:column; align-items:center; justify-content:center; 
+      background:rgba(7,16,24,0.95); 
+      transition: opacity 0.5s; 
+  }
+  .hidden { display:none !important; }
+
+  /* Title Screen */
+  #title-screen h1 { 
+      font-size: 48px; color: var(--accent); letter-spacing: 8px; margin-bottom: 10px; 
+      text-shadow: 0 0 20px rgba(0,255,157,0.4); text-align:center;
+  }
+  #title-screen p { 
+      color: var(--muted); margin-bottom: 30px; letter-spacing: 2px; text-align:center; max-width: 600px; line-height: 1.5;
+  }
+
+  /* Main UI */
+  .ui{position:relative; z-index:30; height:100%; display:flex; flex-direction:column; background: rgba(7,16,24,0.85);}
+  .topbar{display:flex; justify-content:space-between; align-items:center; padding:12px 18px; background:rgba(0,0,0,0.5); border-bottom:1px solid rgba(255,255,255,0.05);}
+  .title{font-weight:700; color:var(--accent); letter-spacing:2px}
+  .money-badge{background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:8px; font-weight:600; border:1px solid var(--accent); color: white;}
+
+  .main{display:grid; grid-template-columns:1fr 420px; gap:18px; padding:18px; height:calc(100% - 64px); box-sizing:border-box}
+  .panel{background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:10px; padding:15px; display:flex; flex-direction:column;}
+  .panel h2 { margin-top: 0; color: var(--accent); font-size: 18px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;}
+  
+  /* Buttons */
+  button{background:transparent; border:1px solid var(--accent); color:var(--accent); padding:10px 20px; cursor:pointer; font-weight:700; border-radius:4px; transition: 0.2s; text-transform: uppercase;}
+  button:hover:not(:disabled){background:var(--accent); color:#000; box-shadow: 0 0 15px var(--accent);}
+  button:disabled{opacity:0.3; cursor:not-allowed; border-color: #555; color: #555;}
+
+  /* Lists */
+  .list-container { display:flex; flex-direction:column; gap:10px; overflow-y:auto; flex-grow: 1; padding-right: 5px;}
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #000; }
+  ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+  .item-row { display:flex; justify-content:space-between; align-items:center; padding:12px; background:rgba(0,0,0,0.4); border-radius:8px; border:1px solid rgba(255,255,255,0.05); transition: 0.2s;}
+  .item-row:hover { border-color: var(--accent); background: rgba(0,255,157,0.05); }
+  .item-info b { display:block; color: white; margin-bottom: 4px;}
+  .item-info span { font-size: 12px; color: var(--muted); }
+
+  /* Dialogue Overlay */
+  #dialogue{position:absolute; bottom:30px; left:50%; transform:translateX(-50%); width:80%; background:rgba(0,0,0,0.95); border:1px solid var(--accent); padding:20px; border-radius:8px; z-index:200; display:none; box-shadow: 0 0 30px rgba(0,0,0,0.8);}
+  #dlgSpeaker{color:var(--accent); font-weight:bold; margin-bottom:8px; text-transform:uppercase; font-size:14px; letter-spacing: 1px;}
+  #dlgText{font-size:18px; line-height:1.5; color: #fff;}
+
+  /* Race HUD */
+  #race-hud{position:absolute; top:40px; left:50%; transform:translateX(-50%); width:500px; background:rgba(0,0,0,0.8); padding:20px; border-radius:12px; border:1px solid var(--accent); z-index:150; display:none; box-shadow: 0 10px 40px rgba(0,0,0,0.5);}
+  #pulse-container{width:100%; height:24px; background:#111; position:relative; margin-top:15px; border-radius:12px; overflow:hidden; border: 1px solid #333;}
+  #pulse-zone{position:absolute; left:75%; width:15%; height:100%; background:rgba(0,255,157,0.2); border-left:2px solid var(--accent); border-right:2px solid var(--accent);}
+  #pulse-bar{position:absolute; top:0; left:0; width:4px; height:100%; background:#fff; box-shadow: 0 0 10px #fff, 0 0 20px var(--accent);}
+  
+  .feedback-msg { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); font-size: 24px; font-weight: bold; text-shadow: 0 2px 0 #000; z-index: 160; display: none; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div id="app">
+    <canvas id="gameCanvas" width="1080" height="680"></canvas>
+
+    <div id="title-screen" class="screen">
+        <h1>PEAK CIRCUIT</h1>
+        <p>Your boyfriend Kami has been taken by the Syndicate.<br>Ride fast. Build your bond. Win him back.</p>
+        <button id="btn-start-game">START ENGINE</button>
+    </div>
+
+    <div id="game-ui" class="ui hidden">
+      <div class="topbar">
+        <div class="title">PEAK CIRCUIT // HUB</div>
+        <div style="display:flex; gap:15px; align-items:center;">
+          <div class="money-badge" id="moneyBadge">€0</div>
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="left-col" style="display:flex; flex-direction:column; gap:15px; overflow:hidden;">
+          <div class="panel" style="flex: 2;">
+            <h2>Race Calendar</h2>
+            <div id="race-list" class="list-container"></div>
+          </div>
+          <div class="panel" style="flex: 1;">
+            <h2>Active Mount</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div id="stable-info">
+                    <b style="font-size:20px;">None</b><br>
+                    <span style="color:var(--muted)">Speed: 0 | Stamina: 0</span>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="right-col" style="display:flex; flex-direction:column; gap:15px; overflow:hidden;">
+          <div class="panel" style="flex: 2;">
+            <h2>Dark Web Market</h2>
+            <div id="shop-list" class="list-container"></div>
+          </div>
+          <div class="panel" style="flex: 0 0 auto;">
+            <h2>System</h2>
+            <div style="display:flex; gap:10px;">
+                <button id="btnSave" style="flex:1;">Save</button>
+                <button id="btnLoad" style="flex:1;">Load</button>
+                <button id="btnReset" style="border-color:var(--danger); color:var(--danger); flex:1;">Reset</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="dialogue">
+      <div id="dlgSpeaker">Kasai</div>
+      <div id="dlgText">Loading...</div>
+      <div style="margin-top:10px; font-size:11px; color:var(--muted); text-align:right;">PRESS [SPACE] TO CONTINUE</div>
+    </div>
+
+    <div id="race-hud">
+      <div style="display:flex; justify-content:space-between; font-size: 14px; font-weight: bold; color: #fff; margin-bottom: 5px;">
+          <span id="raceTitle">STREET RACE</span>
+          <span id="raceDist">0m / 1000m</span>
+      </div>
+      <div id="pulse-container">
+        <div id="pulse-zone"></div>
+        <div id="pulse-bar"></div>
+      </div>
+      <p style="font-size:12px; text-align:center; margin-top:8px; color:var(--accent); letter-spacing: 1px;">HIT [SPACE] IN THE GREEN ZONE TO BOOST</p>
+    </div>
+    
+    <div id="feedback" class="feedback-msg">PERFECT!</div>
+
+  </div>
+</div>
+
+<script>
+// --- SYSTEM CHECK ---
+window.onerror = function(msg, url, line) {
+    alert("ERROR: " + msg + "\nLine: " + line);
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Alert the user that code loaded
+    console.log("System Online");
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // --- STATE & DATA ---
+    const RACES = [
+        { id: 1, name: "Neon Slums Qualifier", dist: 800, reward: 200, fee: 0, diff: 3, locked: false },
+        { id: 2, name: "Midnight Highway", dist: 1200, reward: 500, fee: 50, diff: 5, locked: false },
+        { id: 3, name: "Syndicate Rooftops", dist: 1600, reward: 1200, fee: 200, diff: 7, locked: false },
+        { id: 99, name: "THE FINAL RUN (Rescue Kami)", dist: 2500, reward: 10000, fee: 0, diff: 9, locked: true }
+    ];
+
+    const HORSES = [
+        { id: 'rusty', name: 'Rusty', speed: 4.5, accel: 0.1, cost: 0, desc: "Old faithful." },
+        { id: 'shadow', name: 'Shadowfax', speed: 6.0, accel: 0.15, cost: 400, desc: "Sleek and silent." },
+        { id: 'nova', name: 'Nova Burst', speed: 7.5, accel: 0.2, cost: 1500, desc: "Powered by pure fusion." },
+        { id: 'kami_love', name: 'Heart of Kami', speed: 9.0, accel: 0.3, cost: 5000, desc: "The legendary bond." }
+    ];
+
+    let gameState = {
+        money: 0,
+        owned: ['rusty'],
+        activeHorse: 'rusty',
+        completedRaces: []
+    };
+
+    let appState = 'TITLE'; // TITLE, HUB, RACE, DIALOGUE
+    let raceData = {
+        active: false,
+        distance: 0,
+        playerPos: 0,
+        enemyPos: 0,
+        playerSpeed: 0,
+        enemySpeed: 0,
+        pulseVal: 0,
+        pulseDir: 1, // 1 or -1
+        pulseSpeed: 1.5
+    };
+
+    let dialogQueue = [];
+    let dialogCallback = null;
+
+    // --- ASSETS GENERATION ---
+    function drawHorse(x, y, color, frame) {
+        ctx.fillStyle = color;
+        // Body
+        ctx.fillRect(x, y, 40, 20);
+        // Neck/Head
+        ctx.fillRect(x + 30, y - 15, 10, 20);
+        ctx.fillRect(x + 35, y - 15, 12, 8);
+        // Legs (animated)
+        let legOffset = Math.sin(frame * 0.2) * 10;
+        ctx.fillRect(x + 5, y + 20, 5, 15 + legOffset);
+        ctx.fillRect(x + 30, y + 20, 5, 15 - legOffset);
+    }
+
+    // --- GAME LOOP ---
+    function loop() {
+        // Clear screen with black just in case
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (appState === 'RACE') {
+            updateRace();
+            drawRace();
+        } else if (appState === 'HUB') {
+            drawHubBg();
+        } else {
+            // Draw generic background for Title/Loading
+            ctx.fillStyle = "#071018";
+            ctx.fillRect(0,0, canvas.width, canvas.height);
+            
+            // Grid lines
+            ctx.strokeStyle = "rgba(0, 255, 157, 0.1)";
+            ctx.lineWidth = 1;
+            for(let i=0; i<canvas.height; i+=40) {
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            }
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    // --- HUB LOGIC ---
+    function updateUI() {
+        document.getElementById('moneyBadge').innerText = "€" + gameState.money;
+        
+        // Active Horse
+        let h = HORSES.find(x => x.id === gameState.activeHorse);
+        if(h) {
+            document.getElementById('stable-info').innerHTML = `
+                <b style="font-size:20px; color:var(--accent)">${h.name}</b><br>
+                <span style="color:#fff; opacity:0.7">Speed: ${h.speed} | Accel: ${h.accel*100}%</span><br>
+                <i style="font-size:12px; color:var(--muted)">"${h.desc}"</i>
+            `;
+        }
+
+        // Shop
+        const shopList = document.getElementById('shop-list');
+        shopList.innerHTML = '';
+        HORSES.forEach(horse => {
+            if (horse.cost > 0 && !gameState.owned.includes(horse.id)) {
+                let row = document.createElement('div');
+                row.className = 'item-row';
+                row.innerHTML = `
+                    <div class="item-info">
+                        <b>${horse.name}</b>
+                        <span>Speed: ${horse.speed}</span>
+                    </div>
+                    <button onclick="buyHorse('${horse.id}')">€${horse.cost}</button>
+                `;
+                shopList.appendChild(row);
+            }
+        });
+
+        // Races
+        const raceList = document.getElementById('race-list');
+        raceList.innerHTML = '';
+        
+        // Unlock final race logic
+        if (gameState.completedRaces.length >= 3) RACES[3].locked = false;
+
+        RACES.forEach(race => {
+            let isLocked = race.locked;
+            let row = document.createElement('div');
+            row.className = 'item-row';
+            row.style.opacity = isLocked ? '0.5' : '1';
+            let btnHtml = isLocked ? `<button disabled>LOCKED</button>` : `<button onclick="enterRace(${race.id})">RACE</button>`;
+            
+            row.innerHTML = `
+                <div class="item-info">
+                    <b>${race.name} ${gameState.completedRaces.includes(race.id) ? '★' : ''}</b>
+                    <span>Dist: ${race.dist}m | Prize: €${race.reward}</span>
+                </div>
+                ${btnHtml}
+            `;
+            raceList.appendChild(row);
+        });
+    }
+
+    window.buyHorse = (id) => {
+        let h = HORSES.find(x => x.id === id);
+        if (gameState.money >= h.cost) {
+            gameState.money -= h.cost;
+            gameState.owned.push(id);
+            gameState.activeHorse = id;
+            updateUI();
+            alert(`You bought ${h.name}! It is now equipped.`);
+        } else {
+            alert("Not enough credits!");
+        }
+    };
+
+    window.enterRace = (id) => {
+        let race = RACES.find(r => r.id === id);
+        if (gameState.money < race.fee) {
+            alert("Entrance fee required: €" + race.fee);
+            return;
+        }
+        gameState.money -= race.fee;
+        startRace(race);
+    };
+
+    // --- RACE LOGIC ---
+    let currentRaceObj = null;
+
+    function startRace(race) {
+        currentRaceObj = race;
+        appState = 'RACE';
+        document.getElementById('game-ui').classList.add('hidden');
+        document.getElementById('race-hud').style.display = 'block';
+        document.getElementById('raceTitle').innerText = race.name;
+        
+        // Reset Physics
+        raceData.distance = race.dist;
+        raceData.playerPos = 0;
+        raceData.enemyPos = 0;
+        raceData.playerSpeed = 0;
+        raceData.enemySpeed = race.diff; // Enemy base speed based on difficulty
+        raceData.pulseVal = 0;
+        raceData.active = true;
+    }
+
+    function updateRace() {
+        if (!raceData.active) return;
+
+        // Pulse Bar Physics
+        raceData.pulseVal += raceData.pulseSpeed * raceData.pulseDir;
+        if (raceData.pulseVal >= 100 || raceData.pulseVal <= 0) {
+            raceData.pulseDir *= -1;
+        }
+        document.getElementById('pulse-bar').style.left = raceData.pulseVal + '%';
+
+        // Horse Physics
+        let playerHorse = HORSES.find(h => h.id === gameState.activeHorse);
+        
+        // Drag
+        raceData.playerSpeed *= 0.98; 
+        
+        // Base movement
+        if (raceData.playerSpeed < playerHorse.speed) raceData.playerSpeed += 0.05;
+
+        raceData.playerPos += raceData.playerSpeed;
+        raceData.enemyPos += raceData.enemySpeed + (Math.random() * 0.5); // Slight random variance
+
+        // UI Update
+        document.getElementById('raceDist').innerText = Math.floor(raceData.playerPos) + "m / " + raceData.distance + "m";
+
+        // Check Finish
+        if (raceData.playerPos >= raceData.distance || raceData.enemyPos >= raceData.distance) {
+            endRace(raceData.playerPos >= raceData.enemyPos);
+        }
+    }
+
+    function drawRace() {
+        // Draw Track (Perspective-ish)
+        ctx.fillStyle = "#1a1a1a";
+        ctx.fillRect(0, 300, canvas.width, 380); // Road
+        
+        // Moving lines
+        let offset = -(raceData.playerPos % 100) * 10;
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 4;
+        for(let i=0; i<20; i++) {
+            let x = offset + (i * 100);
+            // pseudo-3d skew
+            ctx.beginPath();
+            ctx.moveTo(x, 680);
+            ctx.lineTo(x + 200, 300); 
+            ctx.stroke();
+        }
+
+        // Draw Player
+        let pY = 500;
+        let pX = 200; // Fixed X
+        drawHorse(pX, pY, "#00ff9d", raceData.playerPos);
+
+        // Draw Enemy (Relative position)
+        let distDiff = raceData.enemyPos - raceData.playerPos;
+        let eX = pX + (distDiff * 5); // Scale difference for screen
+        if (eX > -100 && eX < canvas.width + 100) {
+            drawHorse(eX, 400, "#ff4d6d", raceData.enemyPos);
+        }
+    }
+
+    function drawHubBg() {
+        // Simple ambient background for Hub
+        ctx.fillStyle = "#05090e";
+        ctx.fillRect(0,0, canvas.width, canvas.height);
+        // Rain
+        ctx.strokeStyle = "rgba(0,255,157,0.1)";
+        ctx.lineWidth = 1;
+        for(let i=0; i<50; i++) {
+            let x = Math.random() * canvas.width;
+            let y = Math.random() * canvas.height;
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-5, y+20); ctx.stroke();
+        }
+    }
+
+    function endRace(win) {
+        raceData.active = false;
+        setTimeout(() => {
+            document.getElementById('race-hud').style.display = 'none';
+            if (win) {
+                if(currentRaceObj.id === 99) {
+                    showDialog([
+                        {s:"Syndicate Leader", t:"Impossible... No one beats the house!"},
+                        {s:"Kasai", t:"The house is burned down. Kami, take my hand!"},
+                        {s:"Kami", t:"Kasai! You came for me!"},
+                        {s:"System", t:"CONGRATULATIONS! You rescued Kami and destroyed the syndicate."}
+                    ], () => {
+                        appState = 'TITLE';
+                        document.getElementById('title-screen').classList.remove('hidden');
+                    });
+                } else {
+                    gameState.money += currentRaceObj.reward;
+                    if(!gameState.completedRaces.includes(currentRaceObj.id)) {
+                        gameState.completedRaces.push(currentRaceObj.id);
+                    }
+                    alert("VICTORY! You won €" + currentRaceObj.reward);
+                    appState = 'HUB';
+                    document.getElementById('game-ui').classList.remove('hidden');
+                    updateUI();
+                }
+            } else {
+                alert("DEFEAT. The syndicate rider was faster.");
+                appState = 'HUB';
+                document.getElementById('game-ui').classList.remove('hidden');
+            }
+        }, 1000);
+    }
+
+    // --- CONTROLS ---
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+            e.preventDefault(); // Stop scrolling
+            
+            // Dialogue advance
+            if (appState === 'DIALOGUE') {
+                advanceDialog();
+                return;
+            }
+
+            // Race boost
+            if (appState === 'RACE' && raceData.active) {
+                // Check zone (75% to 90%)
+                let val = raceData.pulseVal;
+                let hit = (val >= 75 && val <= 90);
+                
+                let feedback = document.getElementById('feedback');
+                feedback.style.display = 'block';
+                feedback.style.opacity = '1';
+
+                if (hit) {
+                    raceData.playerSpeed += 1.5; // BOOST
+                    feedback.innerText = "PERFECT!";
+                    feedback.style.color = "#00ff9d";
+                    // FX
+                    ctx.fillStyle = "#00ff9d";
+                    ctx.beginPath(); ctx.arc(200, 520, 50, 0, Math.PI*2); ctx.fill();
+                } else {
+                    raceData.playerSpeed -= 1.0; // STUMBLE
+                    feedback.innerText = "MISS";
+                    feedback.style.color = "#ff4d6d";
+                }
+
+                setTimeout(() => { feedback.style.display = 'none'; }, 500);
+            }
+        }
+    });
+
+    // --- DIALOGUE SYSTEM ---
+    function showDialog(lines, callback) {
+        appState = 'DIALOGUE';
+        dialogQueue = lines;
+        dialogCallback = callback;
+        document.getElementById('dialogue').style.display = 'block';
+        document.getElementById('game-ui').classList.add('hidden');
+        advanceDialog();
+    }
+
+    function advanceDialog() {
+        if (dialogQueue.length === 0) {
+            document.getElementById('dialogue').style.display = 'none';
+            if (dialogCallback) dialogCallback();
+            return;
+        }
+        let line = dialogQueue.shift();
+        document.getElementById('dlgSpeaker').innerText = line.s;
+        document.getElementById('dlgText').innerText = line.t;
+    }
+
+    // --- INITIALIZATION ---
+    document.getElementById('btn-start-game').addEventListener('click', () => {
+        document.getElementById('title-screen').classList.add('hidden');
+        
+        // Intro Story
+        showDialog([
+            {s:'Kasai', t:'Another rainy night... the green streaks in my hair are pulsing.'},
+            {s:'Kasai', t:'Since they took Kami, the city feels empty. But I know where they are.'},
+            {s:'Kasai', t:'The Peak Circuit. The illegal racing league.'},
+            {s:'Kasai', t:'I have to win my way to the top. I have to get him back.'}
+        ], () => {
+            appState = 'HUB';
+            document.getElementById('game-ui').classList.remove('hidden');
+            updateUI();
+        });
+    });
+    
+    // Save/Load
+    const SAVE_KEY = 'peak_circuit_save_v1';
+    document.getElementById('btnSave').addEventListener('click', () => {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+        alert("Game Saved!");
+    });
+    document.getElementById('btnLoad').addEventListener('click', () => {
+        let d = localStorage.getItem(SAVE_KEY);
+        if(d) {
+            gameState = JSON.parse(d);
+            updateUI();
+            alert("Game Loaded!");
+        } else {
+            alert("No save found.");
+        }
+    });
+    document.getElementById('btnReset').addEventListener('click', () => {
+        if(confirm("Reset all progress?")) {
+            gameState = { money: 0, owned: ['rusty'], activeHorse: 'rusty', completedRaces: [] };
+            updateUI();
+        }
+    });
+
+    // Start Loop
+    loop();
+    // System Check Popup
+    setTimeout(() => {
+        if(appState === 'TITLE') {
+            console.log("Rendering check complete");
+            // alert("SYSTEM ONLINE\nIf you see this, the game is loaded.");
+        }
+    }, 500);
+});
+</script>
+</body>
+</html>
